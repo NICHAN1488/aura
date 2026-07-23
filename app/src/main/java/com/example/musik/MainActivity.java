@@ -16,10 +16,11 @@ import android.os.IBinder;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
+import android.view.KeyEvent;
 import android.view.View;
+import android.view.inputmethod.EditorInfo;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.Button;
 import android.widget.EditText;
 import android.widget.ImageButton;
 import android.widget.LinearLayout;
@@ -42,16 +43,16 @@ public class MainActivity extends AppCompatActivity {
     private EditText searchInput;
     private ListView songList;
 
-    // ===== МИНИ-ПЛЕЕР =====
     private TextView miniSongName, miniArtist, miniCurrentTime, miniDuration;
     private ImageButton miniPlayPause, miniNext, miniPrev;
     private SeekBar miniSeekBar;
     private View miniPlayer;
     private TextView miniPlaylistName;
 
-    // ===== ПЛЕЙЛИСТЫ =====
     private Spinner playlistSpinner;
-    private Button btnCreatePlaylist, btnDeletePlaylist, btnPlayPlaylist;
+    private ImageButton btnCreatePlaylist;
+    private ImageButton btnDeletePlaylist;
+    private ImageButton btnPlayPlaylist;
     private LinearLayout playlistControls;
     private ArrayAdapter<String> playlistAdapter;
     private List<String> playlistNames = new ArrayList<>();
@@ -69,7 +70,9 @@ public class MainActivity extends AppCompatActivity {
     private final Handler handler = new Handler();
     private boolean isDragging = false;
 
-    // ===== BROADCAST RECEIVER =====
+    // ===== ТАЙМЕР ДЛЯ ПРЯМОГО ОПРОСА =====
+    private boolean isUpdating = false;
+
     private final BroadcastReceiver updateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
@@ -81,36 +84,14 @@ public class MainActivity extends AppCompatActivity {
                     displayedSongs.addAll(allSongs);
                     if (adapter != null) adapter.notifyDataSetChanged();
 
-                    String songName = intent.getStringExtra("songName");
-                    boolean isPlaying = intent.getBooleanExtra("isPlaying", false);
-                    boolean isPlaylistMode = intent.getBooleanExtra("isPlaylistMode", false);
-                    String playlistName = intent.getStringExtra("playlistName");
-
-                    if (songName != null) {
-                        miniSongName.setText(songName);
-                        String artist = intent.getStringExtra("artist");
-                        if (artist != null) miniArtist.setText(artist);
-                        miniPlayer.setVisibility(View.VISIBLE);
-                        if (isPlaying) {
-                            miniPlayPause.setImageResource(android.R.drawable.ic_media_pause);
-                        } else {
-                            miniPlayPause.setImageResource(android.R.drawable.ic_media_play);
-                        }
-                        if (isPlaylistMode && playlistName != null) {
-                            miniPlaylistName.setText("📁 " + playlistName);
-                            miniPlaylistName.setVisibility(View.VISIBLE);
-                        } else {
-                            miniPlaylistName.setVisibility(View.GONE);
-                        }
-                        updateMiniSeekBar();
-                    }
+                    // Обновляем UI напрямую
+                    updateMiniPlayerDirectly();
                     updatePlaylistSpinner();
                 }
             }
         }
     };
 
-    // ===== ПОДКЛЮЧЕНИЕ К СЕРВИСУ =====
     private final ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
@@ -146,12 +127,10 @@ public class MainActivity extends AppCompatActivity {
                             if (isBound) {
                                 int originalIndex = allSongs.indexOf(song);
                                 musicService.playSong(originalIndex);
-                                updateMiniPlayer();
                             }
                         });
                     }
 
-                    // Кнопка "Добавить в плейлист"
                     if (addBtn != null) {
                         addBtn.setOnClickListener(v -> {
                             if (isBound) {
@@ -169,14 +148,90 @@ public class MainActivity extends AppCompatActivity {
 
             updatePlaylistSpinner();
 
+            // ===== ЗАПУСКАЕМ ТАЙМЕР ОБНОВЛЕНИЯ =====
+            startUiUpdater();
+
             if (musicService.getCurrentIndex() >= 0) {
-                updateMiniPlayer();
+                updateMiniPlayerDirectly();
             }
         }
 
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
             isBound = false;
+            stopUiUpdater();
+        }
+    };
+
+    // ============================================================
+    // ===== ПРЯМОЕ ОБНОВЛЕНИЕ UI (БЕЗ BROADCAST) =====
+    // ============================================================
+
+    private void updateMiniPlayerDirectly() {
+        if (musicService == null) return;
+
+        Song song = musicService.getCurrentSong();
+        boolean isPlaying = musicService.isPlaying();
+
+        if (song != null) {
+            miniSongName.setText(song.name);
+            miniArtist.setText(song.artist);
+            miniPlayer.setVisibility(View.VISIBLE);
+        } else {
+            miniSongName.setText("⏳ Загрузка...");
+            miniArtist.setText("---");
+            miniPlayer.setVisibility(View.GONE);
+        }
+
+        if (isPlaying) {
+            miniPlayPause.setImageResource(android.R.drawable.ic_media_pause);
+        } else {
+            miniPlayPause.setImageResource(android.R.drawable.ic_media_play);
+        }
+
+        if (musicService.isPlaylistMode()) {
+            miniPlaylistName.setText("📁 " + musicService.getCurrentPlaylistName());
+            miniPlaylistName.setVisibility(View.VISIBLE);
+        } else {
+            miniPlaylistName.setVisibility(View.GONE);
+        }
+
+        // Обновляем SeekBar
+        int current = musicService.getCurrentPosition();
+        int duration = musicService.getDuration();
+        if (duration > 0) {
+            miniSeekBar.setMax(duration);
+            miniSeekBar.setProgress(current);
+        }
+        miniCurrentTime.setText(formatTime(current));
+        miniDuration.setText(formatTime(duration));
+    }
+
+    // ============================================================
+    // ===== ТАЙМЕР ДЛЯ ПОСТОЯННОГО ОБНОВЛЕНИЯ =====
+    // ============================================================
+
+    private void startUiUpdater() {
+        if (isUpdating) return;
+        isUpdating = true;
+        handler.post(uiUpdaterRunnable);
+    }
+
+    private void stopUiUpdater() {
+        isUpdating = false;
+        handler.removeCallbacks(uiUpdaterRunnable);
+    }
+
+    private final Runnable uiUpdaterRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isUpdating || !isBound || musicService == null) return;
+
+            // Прямое обновление UI
+            updateMiniPlayerDirectly();
+
+            // Запускаем снова через 500 мс
+            handler.postDelayed(this, 500);
         }
     };
 
@@ -192,7 +247,6 @@ public class MainActivity extends AppCompatActivity {
         searchInput = findViewById(R.id.searchInput);
         songList = findViewById(R.id.songList);
 
-        // ===== МИНИ-ПЛЕЕР =====
         miniSongName = findViewById(R.id.miniSongName);
         miniArtist = findViewById(R.id.miniArtist);
         miniCurrentTime = findViewById(R.id.miniCurrentTime);
@@ -204,11 +258,10 @@ public class MainActivity extends AppCompatActivity {
         miniPlayer = findViewById(R.id.miniPlayer);
         miniPlaylistName = findViewById(R.id.miniPlaylistName);
 
-        // ===== ПЛЕЙЛИСТЫ =====
         playlistSpinner = findViewById(R.id.playlistSpinner);
-        ImageButton btnCreatePlaylist = findViewById(R.id.btnCreatePlaylist);
-        ImageButton btnDeletePlaylist = findViewById(R.id.btnDeletePlaylist);
-        ImageButton btnPlayPlaylist = findViewById(R.id.btnPlayPlaylist);
+        btnCreatePlaylist = findViewById(R.id.btnCreatePlaylist);
+        btnDeletePlaylist = findViewById(R.id.btnDeletePlaylist);
+        btnPlayPlaylist = findViewById(R.id.btnPlayPlaylist);
         playlistControls = findViewById(R.id.playlistControls);
 
         genreAll = findViewById(R.id.genreAll);
@@ -228,7 +281,6 @@ public class MainActivity extends AppCompatActivity {
         LocalBroadcastManager.getInstance(this).registerReceiver(updateReceiver,
                 new IntentFilter(MusicService.ACTION_UPDATE));
 
-        // ===== ПОИСК =====
         searchInput.addTextChangedListener(new TextWatcher() {
             @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
@@ -237,39 +289,47 @@ public class MainActivity extends AppCompatActivity {
             @Override public void afterTextChanged(Editable s) {}
         });
 
-        // ===== КЛИК ПО ТРЕКУ =====
+        searchInput.setOnEditorActionListener((v, actionId, event) -> {
+            if (actionId == EditorInfo.IME_ACTION_SEARCH ||
+                    actionId == EditorInfo.IME_ACTION_DONE ||
+                    (event != null && event.getAction() == KeyEvent.ACTION_DOWN &&
+                            event.getKeyCode() == KeyEvent.KEYCODE_ENTER)) {
+                String query = searchInput.getText().toString().trim();
+                filterSongs(query);
+                if (!query.isEmpty()) {
+                    Toast.makeText(this, "🔍 Ищем: " + query, Toast.LENGTH_SHORT).show();
+                }
+                return true;
+            }
+            return false;
+        });
+
         songList.setOnItemClickListener((parent, view, position, id) -> {
             if (position < displayedSongs.size() && isBound) {
                 Song song = displayedSongs.get(position);
                 int originalIndex = allSongs.indexOf(song);
                 musicService.playSong(originalIndex);
-                updateMiniPlayer();
             }
         });
 
-        // ===== КНОПКИ МИНИ-ПЛЕЕРА =====
         miniPrev.setOnClickListener(v -> {
             if (isBound && musicService != null) {
                 musicService.prev();
-                updateMiniPlayer();
             }
         });
 
         miniPlayPause.setOnClickListener(v -> {
             if (isBound && musicService != null) {
                 musicService.togglePlayPause();
-                updateMiniPlayer();
             }
         });
 
         miniNext.setOnClickListener(v -> {
             if (isBound && musicService != null) {
                 musicService.next();
-                updateMiniPlayer();
             }
         });
 
-        // ===== SEEK BAR =====
         miniSeekBar.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
             @Override
             public void onProgressChanged(SeekBar seekBar, int progress, boolean fromUser) {
@@ -286,13 +346,11 @@ public class MainActivity extends AppCompatActivity {
             }
         });
 
-        // ===== КЛИК ПО МИНИ-ПЛЕЕРУ =====
         miniPlayer.setOnClickListener(v -> {
             Intent intent = new Intent(MainActivity.this, FullPlayerActivity.class);
             startActivity(intent);
         });
 
-        // ===== ПЛЕЙЛИСТЫ: СПИННЕР =====
         playlistSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
@@ -301,22 +359,16 @@ public class MainActivity extends AppCompatActivity {
             @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // ===== ПЛЕЙЛИСТЫ: СОЗДАТЬ =====
         btnCreatePlaylist.setOnClickListener(v -> showCreatePlaylistDialog());
-
-        // ===== ПЛЕЙЛИСТЫ: УДАЛИТЬ =====
         btnDeletePlaylist.setOnClickListener(v -> {
             if (isBound && musicService != null) {
                 musicService.deletePlaylist(selectedPlaylistIndex);
                 updatePlaylistSpinner();
             }
         });
-
-        // ===== ПЛЕЙЛИСТЫ: ВОСПРОИЗВЕСТИ =====
         btnPlayPlaylist.setOnClickListener(v -> {
             if (isBound && musicService != null) {
                 musicService.playPlaylist(selectedPlaylistIndex);
-                updateMiniPlayer();
             }
         });
 
@@ -393,56 +445,6 @@ public class MainActivity extends AppCompatActivity {
                 })
                 .setNegativeButton("Отмена", null)
                 .show();
-    }
-
-    // ============================================================
-    // ===== ОБНОВЛЕНИЕ МИНИ-ПЛЕЕРА =====
-    // ============================================================
-
-    private void updateMiniPlayer() {
-        if (musicService != null && musicService.getCurrentSong() != null) {
-            Song song = musicService.getCurrentSong();
-            miniSongName.setText(song.name);
-            miniArtist.setText(song.artist);
-            miniPlayer.setVisibility(View.VISIBLE);
-            if (musicService.isPlaying()) {
-                miniPlayPause.setImageResource(android.R.drawable.ic_media_pause);
-            } else {
-                miniPlayPause.setImageResource(android.R.drawable.ic_media_play);
-            }
-            if (musicService.isPlaylistMode()) {
-                miniPlaylistName.setText("📁 " + musicService.getCurrentPlaylistName());
-                miniPlaylistName.setVisibility(View.VISIBLE);
-            } else {
-                miniPlaylistName.setVisibility(View.GONE);
-            }
-            updateMiniSeekBar();
-            updatePlaylistSpinner();
-        }
-    }
-
-    private void updateMiniSeekBar() {
-        handler.postDelayed(new Runnable() {
-            @Override
-            public void run() {
-                if (isBound && musicService != null && !isDragging) {
-                    int current = musicService.getCurrentPosition();
-                    int duration = musicService.getDuration();
-
-                    if (duration > 0) {
-                        miniSeekBar.setMax(duration);
-                        miniSeekBar.setProgress(current);
-                    }
-
-                    miniCurrentTime.setText(formatTime(current));
-                    miniDuration.setText(formatTime(duration));
-
-                    if (musicService.isPlaying()) {
-                        updateMiniSeekBar();
-                    }
-                }
-            }
-        }, 500);
     }
 
     // ============================================================
@@ -538,14 +540,22 @@ public class MainActivity extends AppCompatActivity {
     protected void onResume() {
         super.onResume();
         if (isBound && musicService != null && musicService.getCurrentSong() != null) {
-            updateMiniPlayer();
+            updateMiniPlayerDirectly();
+            startUiUpdater();
         }
         updatePlaylistSpinner();
     }
 
     @Override
+    protected void onPause() {
+        super.onPause();
+        stopUiUpdater();
+    }
+
+    @Override
     protected void onDestroy() {
         super.onDestroy();
+        stopUiUpdater();
         if (isBound) {
             unbindService(connection);
             isBound = false;

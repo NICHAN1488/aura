@@ -62,7 +62,6 @@ public class MusicService extends Service implements Player.Listener {
     private int repeatMode = REPEAT_NONE;
     private boolean shuffleEnabled = false;
 
-    // ===== ПЛЕЙЛИСТЫ =====
     private List<Playlist> playlists = new ArrayList<>();
     private boolean isPlaylistMode = false;
     private static final String PREFS_NAME = "playlists_data";
@@ -72,6 +71,32 @@ public class MusicService extends Service implements Player.Listener {
     private static final String SERVER_URL = "https://dolls-languages-bidder-sitting.trycloudflare.com";
     private static final String USERNAME = "NICHAN";
     private static final String PASSWORD = "zxcvbn123456";
+
+    // ============================================================
+    // ===== ЛИСТЕНЕР ДЛЯ ОБНОВЛЕНИЯ UI =====
+    // ============================================================
+    public interface UpdateListener {
+        void onSongChanged(String songName, String artist, boolean isPlaying);
+    }
+    private UpdateListener updateListener;
+
+    public void setUpdateListener(UpdateListener listener) {
+        this.updateListener = listener;
+    }
+
+    private void notifyUpdateListener(Song song, boolean isPlaying) {
+        if (updateListener != null) {
+            updateListener.onSongChanged(
+                    song != null ? song.name : "⏳ Загрузка...",
+                    song != null ? song.artist : "---",
+                    isPlaying
+            );
+        }
+    }
+
+    // ============================================================
+    // ===== ОСНОВНЫЕ МЕТОДЫ =====
+    // ============================================================
 
     public class MusicBinder extends Binder {
         public MusicService getService() {
@@ -85,7 +110,7 @@ public class MusicService extends Service implements Player.Listener {
         initExoPlayer();
         notificationManager = NotificationManagerCompat.from(this);
         createNotificationChannel();
-        loadPlaylists(); // Загружаем плейлисты
+        loadPlaylists();
         loadFromNavidrome();
     }
 
@@ -106,7 +131,7 @@ public class MusicService extends Service implements Player.Listener {
     }
 
     // ============================================================
-    // ===== СОХРАНЕНИЕ И ЗАГРУЗКА ПЛЕЙЛИСТОВ =====
+    // ===== ПЛЕЙЛИСТЫ =====
     // ============================================================
 
     private void savePlaylists() {
@@ -114,7 +139,6 @@ public class MusicService extends Service implements Player.Listener {
             SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
             SharedPreferences.Editor editor = prefs.edit();
 
-            // Сохраняем только имена плейлистов, а треки будем хранить в JSON
             JSONArray playlistsJson = new JSONArray();
             for (Playlist p : playlists) {
                 JSONObject playlistObj = new JSONObject();
@@ -149,7 +173,6 @@ public class MusicService extends Service implements Player.Listener {
             String data = prefs.getString("playlists", null);
 
             if (data == null || data.isEmpty()) {
-                // Создаём дефолтный плейлист "Избранное"
                 Playlist defaultPlaylist = new Playlist("Избранное");
                 playlists.add(defaultPlaylist);
                 savePlaylists();
@@ -182,7 +205,6 @@ public class MusicService extends Service implements Player.Listener {
                 playlists.add(playlist);
             }
 
-            // Если плейлистов нет — создаём дефолтный
             if (playlists.isEmpty()) {
                 Playlist defaultPlaylist = new Playlist("Избранное");
                 playlists.add(defaultPlaylist);
@@ -192,7 +214,6 @@ public class MusicService extends Service implements Player.Listener {
             Log.d(TAG, "Плейлисты загружены: " + playlists.size());
         } catch (Exception e) {
             Log.e(TAG, "Ошибка загрузки плейлистов", e);
-            // Если ошибка — создаём дефолтный
             playlists.clear();
             Playlist defaultPlaylist = new Playlist("Избранное");
             playlists.add(defaultPlaylist);
@@ -200,16 +221,7 @@ public class MusicService extends Service implements Player.Listener {
         }
     }
 
-    // ============================================================
-    // ===== МЕТОДЫ ДЛЯ РАБОТЫ С ПЛЕЙЛИСТАМИ =====
-    // ============================================================
-
-    // Получить все плейлисты
-    public List<Playlist> getPlaylists() {
-        return playlists;
-    }
-
-    // Получить треки плейлиста по индексу
+    public List<Playlist> getPlaylists() { return playlists; }
     public List<Song> getPlaylistSongs(int index) {
         if (index >= 0 && index < playlists.size()) {
             return playlists.get(index).songs;
@@ -217,7 +229,6 @@ public class MusicService extends Service implements Player.Listener {
         return new ArrayList<>();
     }
 
-    // Создать новый плейлист
     public void createPlaylist(String name) {
         if (name == null || name.trim().isEmpty()) {
             Toast.makeText(this, "❌ Введите название", Toast.LENGTH_SHORT).show();
@@ -238,7 +249,6 @@ public class MusicService extends Service implements Player.Listener {
         sendUpdateBroadcast();
     }
 
-    // Удалить плейлист
     public void deletePlaylist(int index) {
         if (index < 0 || index >= playlists.size()) {
             Toast.makeText(this, "❌ Плейлист не найден", Toast.LENGTH_SHORT).show();
@@ -254,7 +264,6 @@ public class MusicService extends Service implements Player.Listener {
         playlists.remove(index);
         savePlaylists();
 
-        // Если удалили текущий плейлист — выходим из режима
         if (isPlaylistMode) {
             isPlaylistMode = false;
             songList = new ArrayList<>(originalSongList);
@@ -264,7 +273,6 @@ public class MusicService extends Service implements Player.Listener {
         sendUpdateBroadcast();
     }
 
-    // Добавить трек в плейлист
     public void addToPlaylist(int playlistIndex, int songIndex) {
         if (playlistIndex < 0 || playlistIndex >= playlists.size()) {
             Toast.makeText(this, "❌ Плейлист не найден", Toast.LENGTH_SHORT).show();
@@ -279,7 +287,6 @@ public class MusicService extends Service implements Player.Listener {
         Song song = songList.get(songIndex);
         Playlist playlist = playlists.get(playlistIndex);
 
-        // Проверяем, есть ли уже такой трек
         for (Song s : playlist.songs) {
             if (s.id != null && s.id.equals(song.id)) {
                 Toast.makeText(this, "⚠️ Трек уже в плейлисте", Toast.LENGTH_SHORT).show();
@@ -295,7 +302,6 @@ public class MusicService extends Service implements Player.Listener {
         sendUpdateBroadcast();
     }
 
-    // Удалить трек из плейлиста
     public void removeFromPlaylist(int playlistIndex, int songIndex) {
         if (playlistIndex < 0 || playlistIndex >= playlists.size()) {
             return;
@@ -306,11 +312,9 @@ public class MusicService extends Service implements Player.Listener {
             return;
         }
 
-        Song song = playlist.songs.get(songIndex);
         playlist.removeSong(songIndex);
         savePlaylists();
 
-        // Если мы в режиме этого плейлиста — обновляем список
         if (isPlaylistMode) {
             songList = new ArrayList<>(playlist.songs);
         }
@@ -319,7 +323,6 @@ public class MusicService extends Service implements Player.Listener {
         sendUpdateBroadcast();
     }
 
-    // Воспроизвести плейлист
     public void playPlaylist(int playlistIndex) {
         if (playlistIndex < 0 || playlistIndex >= playlists.size()) {
             Toast.makeText(this, "❌ Плейлист не найден", Toast.LENGTH_SHORT).show();
@@ -342,7 +345,6 @@ public class MusicService extends Service implements Player.Listener {
         sendUpdateBroadcast();
     }
 
-    // Выйти из режима плейлиста
     public void exitPlaylistMode() {
         if (isPlaylistMode) {
             isPlaylistMode = false;
@@ -352,15 +354,12 @@ public class MusicService extends Service implements Player.Listener {
         }
     }
 
-    public boolean isPlaylistMode() {
-        return isPlaylistMode;
-    }
+    public boolean isPlaylistMode() { return isPlaylistMode; }
 
     public String getCurrentPlaylistName() {
         if (isPlaylistMode && !playlists.isEmpty()) {
             for (Playlist p : playlists) {
                 if (p.songs.size() == songList.size() && !p.songs.isEmpty()) {
-                    // Простая проверка — если размер совпадает, считаем что это тот же плейлист
                     return p.name;
                 }
             }
@@ -369,7 +368,7 @@ public class MusicService extends Service implements Player.Listener {
     }
 
     // ============================================================
-    // ===== ОСТАЛЬНЫЕ МЕТОДЫ =====
+    // ===== ЗАГРУЗКА ТРЕКОВ =====
     // ============================================================
 
     private String detectGenre(String songName, String artistName) {
@@ -503,6 +502,12 @@ public class MusicService extends Service implements Player.Listener {
         currentIndex = index;
         isPreparing = true;
 
+        // ===== ОБНОВЛЯЕМ UI СРАЗУ =====
+        handler.post(() -> {
+            notifyUpdateListener(song, false);
+            sendUpdateBroadcastWithSong(song);
+        });
+
         try {
             MediaItem mediaItem = MediaItem.fromUri(song.path);
             exoPlayer.clearMediaItems();
@@ -513,6 +518,9 @@ public class MusicService extends Service implements Player.Listener {
             isPlaying = true;
             isPreparing = false;
             updateNotification();
+
+            // ===== ОБНОВЛЯЕМ UI ЕЩЁ РАЗ (УЖЕ С ПЛЕЙ) =====
+            handler.post(() -> notifyUpdateListener(song, true));
 
         } catch (Exception e) {
             e.printStackTrace();
@@ -636,9 +644,38 @@ public class MusicService extends Service implements Player.Listener {
         if (exoPlayer != null) exoPlayer.seekTo(position);
     }
 
+    // ============================================================
+    // ===== ОБНОВЛЕНИЕ UI =====
+    // ============================================================
+
+    private void sendUpdateBroadcastWithSong(Song song) {
+        Intent intent = new Intent(ACTION_UPDATE);
+        if (song != null) {
+            intent.putExtra("songName", song.name);
+            intent.putExtra("artist", song.artist);
+            intent.putExtra("position", currentIndex);
+            intent.putExtra("isPlaying", isPlaying);
+            intent.putExtra("repeatMode", repeatMode);
+            intent.putExtra("shuffleEnabled", shuffleEnabled);
+            intent.putExtra("isPlaylistMode", isPlaylistMode);
+            intent.putExtra("playlistName", getCurrentPlaylistName());
+        }
+        sendBroadcast(intent);
+    }
+
     @Override
     public void onPlaybackStateChanged(int playbackState) {
         if (playbackState == Player.STATE_ENDED) {
+            // Отправляем "Загрузка..." сразу
+            handler.post(() -> {
+                notifyUpdateListener(null, false);
+                Intent intent = new Intent(ACTION_UPDATE);
+                intent.putExtra("songName", "⏳ Загрузка...");
+                intent.putExtra("artist", "---");
+                intent.putExtra("isPlaying", false);
+                intent.putExtra("position", currentIndex);
+                sendBroadcast(intent);
+            });
             next();
         }
     }

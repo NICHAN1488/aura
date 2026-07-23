@@ -32,6 +32,18 @@ public class FullPlayerActivity extends AppCompatActivity {
     private final int COLOR_GREEN = 0xFF1DB954;
     private final int COLOR_GREY = 0xFF888888;
 
+    // ===== ТАЙМЕР ДЛЯ ОБНОВЛЕНИЯ =====
+    private boolean isUpdating = false;
+
+    private final Runnable updateRunnable = new Runnable() {
+        @Override
+        public void run() {
+            if (!isUpdating || !isBound || musicService == null) return;
+            updateUI();
+            handler.postDelayed(this, 500);
+        }
+    };
+
     private ServiceConnection connection = new ServiceConnection() {
         @Override
         public void onServiceConnected(ComponentName className, IBinder service) {
@@ -39,15 +51,26 @@ public class FullPlayerActivity extends AppCompatActivity {
             musicService = binder.getService();
             isBound = true;
             updateUI();
-            startUpdatingSeekBar();  // ← ЗАПУСКАЕМ ОБНОВЛЕНИЕ
+            startUpdating();
         }
 
         @Override
         public void onServiceDisconnected(ComponentName arg0) {
             isBound = false;
-            stopUpdatingSeekBar();
+            stopUpdating();
         }
     };
+
+    private void startUpdating() {
+        if (isUpdating) return;
+        isUpdating = true;
+        handler.post(updateRunnable);
+    }
+
+    private void stopUpdating() {
+        isUpdating = false;
+        handler.removeCallbacks(updateRunnable);
+    }
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -70,7 +93,7 @@ public class FullPlayerActivity extends AppCompatActivity {
         Intent serviceIntent = new Intent(this, MusicService.class);
         bindService(serviceIntent, connection, Context.BIND_AUTO_CREATE);
 
-        // ===== КНОПКИ УПРАВЛЕНИЯ =====
+        // ===== КНОПКИ =====
         fullPlayPause.setOnClickListener(v -> {
             if (isBound) {
                 musicService.togglePlayPause();
@@ -154,41 +177,7 @@ public class FullPlayerActivity extends AppCompatActivity {
         });
     }
 
-    // ===== ЗАПУСК ОБНОВЛЕНИЯ ПОЛЗУНКА =====
-    private void startUpdatingSeekBar() {
-        handler.postDelayed(updateRunnable, 100);
-    }
-
-    private void stopUpdatingSeekBar() {
-        handler.removeCallbacks(updateRunnable);
-    }
-
-    // ===== RUNNABLE ДЛЯ ПОСТОЯННОГО ОБНОВЛЕНИЯ =====
-    private Runnable updateRunnable = new Runnable() {
-        @Override
-        public void run() {
-            if (isBound && musicService != null && !isDragging) {
-                int current = musicService.getCurrentPosition();
-                int duration = musicService.getDuration();
-
-                fullSeekBar.setMax(duration);
-                fullSeekBar.setProgress(current);
-                fullCurrentTime.setText(formatTime(current));
-                fullDuration.setText(formatTime(duration));
-
-                // ОБНОВЛЯЕМ ИКОНКУ ЕСЛИ НУЖНО
-                if (musicService.isPlaying()) {
-                    fullPlayPause.setImageResource(android.R.drawable.ic_media_pause);
-                } else {
-                    fullPlayPause.setImageResource(android.R.drawable.ic_media_play);
-                }
-            }
-            // ЗАПУСКАЕМ СЛЕДУЮЩЕЕ ОБНОВЛЕНИЕ ЧЕРЕЗ 500 мс
-            handler.postDelayed(this, 500);
-        }
-    };
-
-    // ===== ОБНОВЛЕНИЕ ИКОНКИ SHUFFLE =====
+    // ===== ОБНОВЛЕНИЕ ICON =====
     private void updateShuffleIcon() {
         if (isBound && musicService != null) {
             if (musicService.isShuffleEnabled()) {
@@ -199,7 +188,6 @@ public class FullPlayerActivity extends AppCompatActivity {
         }
     }
 
-    // ===== ОБНОВЛЕНИЕ ИКОНКИ ПОВТОРА =====
     private void updateRepeatIcon() {
         if (isBound && musicService != null) {
             int mode = musicService.getRepeatMode();
@@ -222,14 +210,24 @@ public class FullPlayerActivity extends AppCompatActivity {
 
     // ===== ОБНОВЛЕНИЕ ВСЕГО UI =====
     private void updateUI() {
-        if (isBound && musicService.getCurrentSong() != null) {
+        if (isBound && musicService != null) {
             Song song = musicService.getCurrentSong();
-            fullSongName.setText(song.name);
-            fullArtist.setText(song.artist);
 
+            if (song != null) {
+                fullSongName.setText(song.name);
+                fullArtist.setText(song.artist);
+            } else {
+                fullSongName.setText("⏳ Загрузка...");
+                fullArtist.setText("---");
+            }
+
+            int current = musicService.getCurrentPosition();
             int duration = musicService.getDuration();
-            fullDuration.setText(formatTime(duration));
+
             fullSeekBar.setMax(duration);
+            fullSeekBar.setProgress(current);
+            fullCurrentTime.setText(formatTime(current));
+            fullDuration.setText(formatTime(duration));
 
             if (musicService.isPlaying()) {
                 fullPlayPause.setImageResource(android.R.drawable.ic_media_pause);
@@ -242,7 +240,6 @@ public class FullPlayerActivity extends AppCompatActivity {
         }
     }
 
-    // ===== ФОРМАТИРОВАНИЕ ВРЕМЕНИ =====
     private String formatTime(int ms) {
         if (ms <= 0) return "0:00";
         int totalSec = ms / 1000;
@@ -256,20 +253,20 @@ public class FullPlayerActivity extends AppCompatActivity {
         super.onResume();
         if (isBound) {
             updateUI();
-            startUpdatingSeekBar();
+            startUpdating();
         }
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        stopUpdatingSeekBar();
+        stopUpdating();
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
-        stopUpdatingSeekBar();
+        stopUpdating();
         if (isBound) {
             unbindService(connection);
             isBound = false;

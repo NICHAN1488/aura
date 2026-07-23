@@ -67,9 +67,9 @@ public class MusicService extends Service implements Player.Listener {
 
     private final IBinder binder = new MusicBinder();
 
-    private static final String SERVER_URL = "https://dolls-languages-bidder-sitting.trycloudflare.com";
-    private static final String USERNAME = "NICHAN";
-    private static final String PASSWORD = "Sosilol123";
+    private static final String SERVER_URL = "custom";
+    private static final String USERNAME = "custom";
+    private static final String PASSWORD = "custom";
 
     public class MusicBinder extends Binder {
         public MusicService getService() {

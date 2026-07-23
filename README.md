@@ -77,9 +77,30 @@
 **Что делает пользователь:** Открывает приложение
 
 **Что происходит в коде:**
-MusicService.loadFromNavidrome() ↓ GET /rest/getAlbumList2?u=NICHAN&p=***&type=random&size=50 ↓ Сервер возвращает JSON с альбомами ↓ Для каждого альбома делается запрос: GET /rest/getAlbum?id=XXX ↓ Получаем список треков с их ID ↓ Для каждого трека формируем ссылку на стриминг: /rest/stream?id=XXX&u=NICHAN&p=*** ↓ Сохраняем в List<Song> ↓ Отправляем Broadcast (ACTION_UPDATE) ↓ MainActivity обновляет UI
+MusicService.loadFromNavidrome()
+↓
+GET /rest/getAlbumList2?u=NICHAN&p=&type=random&size=50
+↓
+Сервер возвращает JSON с альбомами
+↓
+Для каждого альбома делается запрос:
+GET /rest/getAlbum?id=XXX
+↓
+Получаем список треков с их ID
+↓
+Для каждого трека формируем ссылку на стриминг:
+/rest/stream?id=XXX&u=NICHAN&p=
+↓
+Сохраняем в List<Song>
+↓
+Отправляем Broadcast (ACTION_UPDATE)
+↓
+MainActivity обновляет UI
+
+text
 
 **Пример JSON-ответа от Navidrome:**
+```json
 {
   "subsonic-response": {
     "status": "ok",
@@ -95,41 +116,95 @@ MusicService.loadFromNavidrome() ↓ GET /rest/getAlbumList2?u=NICHAN&p=***&type
     }
   }
 }
+2️⃣ Воспроизведение трека
+Что делает пользователь: Нажимает на трек в списке
 
----
+Что происходит в коде:
 
-### 2️⃣ Воспроизведение трека
+text
+MainActivity.onItemClick()
+    ↓
+musicService.playSong(index)
+    ↓
+Берём Song.path (URL стриминга)
+    ↓
+ExoPlayer.setMediaItem(MediaItem.fromUri(streamUrl))
+    ↓
+ExoPlayer.prepare() → подготавливает аудио
+    ↓
+ExoPlayer.setPlayWhenReady(true) → начинает играть
+    ↓
+updateNotification() → появляется в шторке
+    ↓
+sendUpdateBroadcast() → обновляет мини-плеер
+Пример URL для стриминга:
 
-**Что делает пользователь:** Нажимает на трек в списке
-
-**Что происходит в коде:**
-MainActivity.onItemClick() ↓ musicService.playSong(index) ↓ Берём Song.path (URL стриминга) ↓ ExoPlayer.setMediaItem(MediaItem.fromUri(streamUrl)) ↓ ExoPlayer.prepare() → подготавливает аудио ↓ ExoPlayer.setPlayWhenReady(true) → начинает играть ↓ updateNotification() → появляется в шторке ↓ sendUpdateBroadcast() → обновляет мини-плеер
-
-**Пример URL для стриминга:**
+text
 https://xxx.trycloudflare.com/rest/stream?id=XXX&u=NICHAN&p=***&v=1.16.1&c=myplayer
+3️⃣ Управление из шторки уведомлений
+Что делает пользователь: Свайпает вниз → нажимает кнопку в уведомлении
+
+Что происходит в коде:
+
+text
+Пользователь нажал "Пауза" в шторке
+    ↓
+NotificationReceiver.onReceive()
+    ↓
+Получает ACTION_PAUSE
+    ↓
+context.startService(Intent(ACTION_PAUSE))
+    ↓
+MusicService.onStartCommand()
+    ↓
+pause() → exoPlayer.setPlayWhenReady(false)
+    ↓
+updateNotification() → меняем иконку на "Плей"
+    ↓
+sendUpdateBroadcast() → обновляем UI
+Цепочка Intent'ов:
+
+text
+Notification (кнопка)
+    ↓
+PendingIntent.getBroadcast()
+    ↓
+NotificationReceiver (ловит действие)
+    ↓
+MusicService (выполняет действие)
+    ↓
+UI обновляется
+4️⃣ Перемотка трека (SeekBar)
+Что делает пользователь: Тянет ползунок в мини-плеере
+
+Что происходит в коде:
+
+text
+Пользователь двигает SeekBar
+    ↓
+SeekBar.OnSeekBarChangeListener.onProgressChanged()
+    ↓
+musicService.seekTo(progress)
+    ↓
+exoPlayer.seekTo(position)
+    ↓
+miniCurrentTime.setText(formatTime(progress))
+text
 
 ---
 
-### 3️⃣ Управление из шторки уведомлений
+## 🚀 КАК ЗАМЕНИТЬ:
 
-**Что делает пользователь:** Свайпает вниз → нажимает кнопку в уведомлении
+1. **Найди в README.md раздел `## Полный цикл запроса (User Flow)`**
+2. **Удали ВСЁ оттуда до следующего раздела**
+3. **Вставь этот новый текст**
+4. **Сохрани**
+5. **Заливай**:
 
-**Что происходит в коде:**
-Пользователь нажал "Пауза" в шторке ↓ NotificationReceiver.onReceive() ↓ Получает ACTION_PAUSE ↓ context.startService(Intent(ACTION_PAUSE)) ↓ MusicService.onStartCommand() ↓ pause() → exoPlayer.setPlayWhenReady(false) ↓ updateNotification() → меняем иконку на "Плей" ↓ sendUpdateBroadcast() → обновляем UI
-
-**Цепочка Intent'ов:**
-Notification (кнопка) ↓ PendingIntent.getBroadcast() ↓ NotificationReceiver (ловит действие) ↓ MusicService (выполняет действие) ↓ UI обновляется
-
----
-
-### 4️⃣ Перемотка трека (SeekBar)
-
-**Что делает пользователь:** Тянет ползунок в мини-плеере
-
-**Что происходит в коде:**
-Пользователь двигает SeekBar ↓ SeekBar.OnSeekBarChangeListener.onProgressChanged() ↓ musicService.seekTo(progress) ↓ exoPlayer.seekTo(position) ↓ miniCurrentTime.setText(formatTime(progress))
-
----
+```bash
+git add README.md
+git commit -m "Починил форматирование User Flow"
+git push
 
 ## 🗺️ Схема данных
 

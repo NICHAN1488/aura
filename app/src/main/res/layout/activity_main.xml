@@ -51,6 +51,54 @@
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="12dp" />
 
+    <!-- ===== УПРАВЛЕНИЕ ПЛЕЙЛИСТАМИ ===== -->
+    <LinearLayout
+        android:id="@+id/playlistControls"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:padding="8dp"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="8dp">
+
+        <Spinner
+            android:id="@+id/playlistSpinner"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:background="@drawable/search_background"
+            android:padding="8dp"
+            android:textColor="#FFFFFF"
+            android:popupBackground="#1E1E1E" />
+
+        <ImageButton
+            android:id="@+id/btnCreatePlaylist"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_menu_add"
+            android:background="@null"
+            android:contentDescription="Создать плейлист"
+            app:tint="#1DB954" />
+
+        <ImageButton
+            android:id="@+id/btnDeletePlaylist"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_menu_delete"
+            android:background="@null"
+            android:contentDescription="Удалить плейлист"
+            app:tint="#FF4444" />
+
+        <ImageButton
+            android:id="@+id/btnPlayPlaylist"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:src="@android:drawable/ic_media_play"
+            android:background="@null"
+            android:contentDescription="Воспроизвести плейлист"
+            app:tint="#1DB954" />
+    </LinearLayout>
+
     <!-- ЖАНРЫ -->
     <HorizontalScrollView
         android:layout_width="match_parent"
@@ -178,9 +226,7 @@
         android:dividerHeight="1dp"
         android:paddingBottom="80dp" />
 
-    <!-- ============================================================ -->
-    <!-- ===== МИНИ-ПЛЕЕР (РАБОТАЮЩИЙ) ===== -->
-    <!-- ============================================================ -->
+    <!-- ===== МИНИ-ПЛЕЕР ===== -->
     <LinearLayout
         android:id="@+id/miniPlayer"
         android:layout_width="match_parent"
@@ -193,7 +239,16 @@
         android:clickable="true"
         android:focusable="true">
 
-        <!-- Верхняя часть: кнопки + название -->
+        <TextView
+            android:id="@+id/miniPlaylistName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="📁 Избранное"
+            android:textColor="#1DB954"
+            android:textSize="10sp"
+            android:visibility="gone"
+            android:layout_marginBottom="2dp" />
+
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -220,7 +275,9 @@
                     android:text="Нет трека"
                     android:textColor="#FFFFFF"
                     android:textSize="14sp"
-                    android:textStyle="bold" />
+                    android:textStyle="bold"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
 
                 <TextView
                     android:id="@+id/miniArtist"
@@ -228,17 +285,19 @@
                     android:layout_height="wrap_content"
                     android:text="---"
                     android:textColor="#AAAAAA"
-                    android:textSize="12sp" />
+                    android:textSize="12sp"
+                    android:maxLines="1"
+                    android:ellipsize="end" />
             </LinearLayout>
 
-            <!-- ===== КНОПКИ МИНИ-ПЛЕЕРА ===== -->
             <ImageButton
                 android:id="@+id/miniPrev"
                 android:layout_width="36dp"
                 android:layout_height="36dp"
                 android:src="@android:drawable/ic_media_previous"
                 android:background="@null"
-                android:contentDescription="Назад" />
+                android:contentDescription="Назад"
+                app:tint="#FFFFFF" />
 
             <ImageButton
                 android:id="@+id/miniPlayPause"
@@ -246,7 +305,8 @@
                 android:layout_height="40dp"
                 android:src="@android:drawable/ic_media_play"
                 android:background="@null"
-                android:contentDescription="Пауза/Воспроизвести" />
+                android:contentDescription="Пауза/Воспроизвести"
+                app:tint="#1DB954" />
 
             <ImageButton
                 android:id="@+id/miniNext"
@@ -254,10 +314,10 @@
                 android:layout_height="36dp"
                 android:src="@android:drawable/ic_media_next"
                 android:background="@null"
-                android:contentDescription="Вперед" />
+                android:contentDescription="Вперед"
+                app:tint="#FFFFFF" />
         </LinearLayout>
 
-        <!-- SEEK BAR + ВРЕМЯ -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

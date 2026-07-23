@@ -62,14 +62,16 @@ public class MusicService extends Service implements Player.Listener {
     private int repeatMode = REPEAT_NONE;
     private boolean shuffleEnabled = false;
 
+    // ===== ПЛЕЙЛИСТЫ =====
     private List<Playlist> playlists = new ArrayList<>();
     private boolean isPlaylistMode = false;
+    private static final String PREFS_NAME = "playlists_data";
 
     private final IBinder binder = new MusicBinder();
 
-    private static final String SERVER_URL = "custom";
-    private static final String USERNAME = "custom";
-    private static final String PASSWORD = "custom";
+    private static final String SERVER_URL = "https://dolls-languages-bidder-sitting.trycloudflare.com";
+    private static final String USERNAME = "NICHAN";
+    private static final String PASSWORD = "zxcvbn123456";
 
     public class MusicBinder extends Binder {
         public MusicService getService() {
@@ -80,12 +82,11 @@ public class MusicService extends Service implements Player.Listener {
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "🔥 MUSIC SERVICE СОЗДАН!");
         initExoPlayer();
         notificationManager = NotificationManagerCompat.from(this);
         createNotificationChannel();
+        loadPlaylists(); // Загружаем плейлисты
         loadFromNavidrome();
-        loadPlaylists();
     }
 
     private void initExoPlayer() {
@@ -104,13 +105,272 @@ public class MusicService extends Service implements Player.Listener {
         exoPlayer.addListener(this);
     }
 
+    // ============================================================
+    // ===== СОХРАНЕНИЕ И ЗАГРУЗКА ПЛЕЙЛИСТОВ =====
+    // ============================================================
+
     private void savePlaylists() {
-        SharedPreferences prefs = getSharedPreferences("playlists", MODE_PRIVATE);
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            SharedPreferences.Editor editor = prefs.edit();
+
+            // Сохраняем только имена плейлистов, а треки будем хранить в JSON
+            JSONArray playlistsJson = new JSONArray();
+            for (Playlist p : playlists) {
+                JSONObject playlistObj = new JSONObject();
+                playlistObj.put("name", p.name);
+
+                JSONArray songsJson = new JSONArray();
+                for (Song s : p.songs) {
+                    JSONObject songObj = new JSONObject();
+                    songObj.put("name", s.name);
+                    songObj.put("artist", s.artist);
+                    songObj.put("path", s.path);
+                    songObj.put("duration", s.duration);
+                    songObj.put("genre", s.genre);
+                    songObj.put("id", s.id);
+                    songsJson.put(songObj);
+                }
+                playlistObj.put("songs", songsJson);
+                playlistsJson.put(playlistObj);
+            }
+
+            editor.putString("playlists", playlistsJson.toString());
+            editor.apply();
+            Log.d(TAG, "Плейлисты сохранены: " + playlists.size());
+        } catch (Exception e) {
+            Log.e(TAG, "Ошибка сохранения плейлистов", e);
+        }
     }
 
     private void loadPlaylists() {
-        playlists = new ArrayList<>();
+        try {
+            SharedPreferences prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE);
+            String data = prefs.getString("playlists", null);
+
+            if (data == null || data.isEmpty()) {
+                // Создаём дефолтный плейлист "Избранное"
+                Playlist defaultPlaylist = new Playlist("Избранное");
+                playlists.add(defaultPlaylist);
+                savePlaylists();
+                Log.d(TAG, "Создан дефолтный плейлист: Избранное");
+                return;
+            }
+
+            JSONArray playlistsJson = new JSONArray(data);
+            playlists.clear();
+
+            for (int i = 0; i < playlistsJson.length(); i++) {
+                JSONObject playlistObj = playlistsJson.getJSONObject(i);
+                String name = playlistObj.getString("name");
+                Playlist playlist = new Playlist(name);
+
+                JSONArray songsJson = playlistObj.getJSONArray("songs");
+                for (int j = 0; j < songsJson.length(); j++) {
+                    JSONObject songObj = songsJson.getJSONObject(j);
+                    Song song = new Song(
+                            songObj.getString("name"),
+                            songObj.getString("artist"),
+                            songObj.getString("path"),
+                            songObj.getInt("duration"),
+                            songObj.getString("genre"),
+                            songObj.getString("id")
+                    );
+                    playlist.addSong(song);
+                }
+
+                playlists.add(playlist);
+            }
+
+            // Если плейлистов нет — создаём дефолтный
+            if (playlists.isEmpty()) {
+                Playlist defaultPlaylist = new Playlist("Избранное");
+                playlists.add(defaultPlaylist);
+                savePlaylists();
+            }
+
+            Log.d(TAG, "Плейлисты загружены: " + playlists.size());
+        } catch (Exception e) {
+            Log.e(TAG, "Ошибка загрузки плейлистов", e);
+            // Если ошибка — создаём дефолтный
+            playlists.clear();
+            Playlist defaultPlaylist = new Playlist("Избранное");
+            playlists.add(defaultPlaylist);
+            savePlaylists();
+        }
     }
+
+    // ============================================================
+    // ===== МЕТОДЫ ДЛЯ РАБОТЫ С ПЛЕЙЛИСТАМИ =====
+    // ============================================================
+
+    // Получить все плейлисты
+    public List<Playlist> getPlaylists() {
+        return playlists;
+    }
+
+    // Получить треки плейлиста по индексу
+    public List<Song> getPlaylistSongs(int index) {
+        if (index >= 0 && index < playlists.size()) {
+            return playlists.get(index).songs;
+        }
+        return new ArrayList<>();
+    }
+
+    // Создать новый плейлист
+    public void createPlaylist(String name) {
+        if (name == null || name.trim().isEmpty()) {
+            Toast.makeText(this, "❌ Введите название", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        for (Playlist p : playlists) {
+            if (p.name.equals(name.trim())) {
+                Toast.makeText(this, "❌ Плейлист \"" + name + "\" уже существует", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        Playlist playlist = new Playlist(name.trim());
+        playlists.add(playlist);
+        savePlaylists();
+        Toast.makeText(this, "✅ Плейлист \"" + name + "\" создан", Toast.LENGTH_SHORT).show();
+        sendUpdateBroadcast();
+    }
+
+    // Удалить плейлист
+    public void deletePlaylist(int index) {
+        if (index < 0 || index >= playlists.size()) {
+            Toast.makeText(this, "❌ Плейлист не найден", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (playlists.size() <= 1) {
+            Toast.makeText(this, "❌ Нельзя удалить последний плейлист", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        String name = playlists.get(index).name;
+        playlists.remove(index);
+        savePlaylists();
+
+        // Если удалили текущий плейлист — выходим из режима
+        if (isPlaylistMode) {
+            isPlaylistMode = false;
+            songList = new ArrayList<>(originalSongList);
+        }
+
+        Toast.makeText(this, "🗑️ Плейлист \"" + name + "\" удалён", Toast.LENGTH_SHORT).show();
+        sendUpdateBroadcast();
+    }
+
+    // Добавить трек в плейлист
+    public void addToPlaylist(int playlistIndex, int songIndex) {
+        if (playlistIndex < 0 || playlistIndex >= playlists.size()) {
+            Toast.makeText(this, "❌ Плейлист не найден", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        if (songIndex < 0 || songIndex >= songList.size()) {
+            Toast.makeText(this, "❌ Трек не найден", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Song song = songList.get(songIndex);
+        Playlist playlist = playlists.get(playlistIndex);
+
+        // Проверяем, есть ли уже такой трек
+        for (Song s : playlist.songs) {
+            if (s.id != null && s.id.equals(song.id)) {
+                Toast.makeText(this, "⚠️ Трек уже в плейлисте", Toast.LENGTH_SHORT).show();
+                return;
+            }
+        }
+
+        Song copy = new Song(song.name, song.artist, song.path, song.duration, song.genre, song.id);
+        playlist.addSong(copy);
+        savePlaylists();
+
+        Toast.makeText(this, "✅ Добавлено в \"" + playlist.name + "\"", Toast.LENGTH_SHORT).show();
+        sendUpdateBroadcast();
+    }
+
+    // Удалить трек из плейлиста
+    public void removeFromPlaylist(int playlistIndex, int songIndex) {
+        if (playlistIndex < 0 || playlistIndex >= playlists.size()) {
+            return;
+        }
+
+        Playlist playlist = playlists.get(playlistIndex);
+        if (songIndex < 0 || songIndex >= playlist.songs.size()) {
+            return;
+        }
+
+        Song song = playlist.songs.get(songIndex);
+        playlist.removeSong(songIndex);
+        savePlaylists();
+
+        // Если мы в режиме этого плейлиста — обновляем список
+        if (isPlaylistMode) {
+            songList = new ArrayList<>(playlist.songs);
+        }
+
+        Toast.makeText(this, "🗑️ Удалено из плейлиста", Toast.LENGTH_SHORT).show();
+        sendUpdateBroadcast();
+    }
+
+    // Воспроизвести плейлист
+    public void playPlaylist(int playlistIndex) {
+        if (playlistIndex < 0 || playlistIndex >= playlists.size()) {
+            Toast.makeText(this, "❌ Плейлист не найден", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        Playlist playlist = playlists.get(playlistIndex);
+        if (playlist.songs.isEmpty()) {
+            Toast.makeText(this, "❌ Плейлист пуст", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        songList = new ArrayList<>(playlist.songs);
+        originalSongList = new ArrayList<>(playlist.songs);
+        currentIndex = 0;
+        isPlaylistMode = true;
+        playSong(0);
+
+        Toast.makeText(this, "▶️ Играет плейлист: " + playlist.name, Toast.LENGTH_SHORT).show();
+        sendUpdateBroadcast();
+    }
+
+    // Выйти из режима плейлиста
+    public void exitPlaylistMode() {
+        if (isPlaylistMode) {
+            isPlaylistMode = false;
+            songList = new ArrayList<>(originalSongList);
+            sendUpdateBroadcast();
+            Toast.makeText(this, "↩️ Вышли из плейлиста", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    public boolean isPlaylistMode() {
+        return isPlaylistMode;
+    }
+
+    public String getCurrentPlaylistName() {
+        if (isPlaylistMode && !playlists.isEmpty()) {
+            for (Playlist p : playlists) {
+                if (p.songs.size() == songList.size() && !p.songs.isEmpty()) {
+                    // Простая проверка — если размер совпадает, считаем что это тот же плейлист
+                    return p.name;
+                }
+            }
+        }
+        return "Все треки";
+    }
+
+    // ============================================================
+    // ===== ОСТАЛЬНЫЕ МЕТОДЫ =====
+    // ============================================================
 
     private String detectGenre(String songName, String artistName) {
         String lowerName = songName.toLowerCase();
@@ -225,6 +485,10 @@ public class MusicService extends Service implements Player.Listener {
             }
         }).start();
     }
+
+    // ============================================================
+    // ===== ВОСПРОИЗВЕДЕНИЕ =====
+    // ============================================================
 
     public void playSong(int index) {
         if (index < 0 || index >= songList.size()) return;
@@ -372,80 +636,6 @@ public class MusicService extends Service implements Player.Listener {
         if (exoPlayer != null) exoPlayer.seekTo(position);
     }
 
-    // ===== ПЛЕЙЛИСТЫ =====
-
-    public void createPlaylist(String name) {
-        Playlist playlist = new Playlist(name);
-        playlists.add(playlist);
-        savePlaylists();
-        Toast.makeText(this, "📁 Плейлист \"" + name + "\" создан", Toast.LENGTH_SHORT).show();
-        sendUpdateBroadcast();
-    }
-
-    public void deletePlaylist(int index) {
-        if (index >= 0 && index < playlists.size()) {
-            String name = playlists.get(index).name;
-            playlists.remove(index);
-            savePlaylists();
-            Toast.makeText(this, "🗑️ Плейлист \"" + name + "\" удалён", Toast.LENGTH_SHORT).show();
-            sendUpdateBroadcast();
-        }
-    }
-
-    public void addToPlaylist(int playlistIndex, int songIndex) {
-        if (playlistIndex >= 0 && playlistIndex < playlists.size() &&
-                songIndex >= 0 && songIndex < songList.size()) {
-            Song song = songList.get(songIndex);
-            Song copy = new Song(song.name, song.artist, song.path, song.duration, song.genre, song.id);
-            playlists.get(playlistIndex).addSong(copy);
-            savePlaylists();
-            Toast.makeText(this, "✅ Добавлено в плейлист", Toast.LENGTH_SHORT).show();
-            sendUpdateBroadcast();
-        }
-    }
-
-    public void removeFromPlaylist(int playlistIndex, int songIndex) {
-        if (playlistIndex >= 0 && playlistIndex < playlists.size()) {
-            playlists.get(playlistIndex).removeSong(songIndex);
-            savePlaylists();
-            Toast.makeText(this, "🗑️ Удалено из плейлиста", Toast.LENGTH_SHORT).show();
-            sendUpdateBroadcast();
-        }
-    }
-
-    public List<Playlist> getPlaylists() { return playlists; }
-
-    public List<Song> getPlaylistSongs(int index) {
-        if (index >= 0 && index < playlists.size()) {
-            return playlists.get(index).songs;
-        }
-        return new ArrayList<>();
-    }
-
-    public void playPlaylist(int playlistIndex) {
-        if (playlistIndex >= 0 && playlistIndex < playlists.size()) {
-            Playlist playlist = playlists.get(playlistIndex);
-            if (playlist.size() > 0) {
-                songList = new ArrayList<>(playlist.songs);
-                currentIndex = 0;
-                isPlaylistMode = true;
-                playSong(0);
-                Toast.makeText(this, "▶️ Играет плейлист: " + playlist.name, Toast.LENGTH_SHORT).show();
-            } else {
-                Toast.makeText(this, "❌ Плейлист пуст", Toast.LENGTH_SHORT).show();
-            }
-        }
-    }
-
-    public void exitPlaylistMode() {
-        if (isPlaylistMode) {
-            songList = new ArrayList<>(originalSongList);
-            isPlaylistMode = false;
-            Toast.makeText(this, "↩️ Вышли из плейлиста", Toast.LENGTH_SHORT).show();
-            sendUpdateBroadcast();
-        }
-    }
-
     @Override
     public void onPlaybackStateChanged(int playbackState) {
         if (playbackState == Player.STATE_ENDED) {
@@ -463,7 +653,7 @@ public class MusicService extends Service implements Player.Listener {
     }
 
     // ============================================================
-    // ===== НОТИФИКАЦИЯ (ШТОРКА) =====
+    // ===== НОТИФИКАЦИЯ =====
     // ============================================================
 
     private void createNotificationChannel() {
@@ -488,7 +678,6 @@ public class MusicService extends Service implements Player.Listener {
 
         Song song = songList.get(currentIndex);
 
-        // Открытие приложения
         Intent openIntent = new Intent(this, MainActivity.class);
         openIntent.setFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP);
         PendingIntent openPendingIntent = PendingIntent.getActivity(
@@ -496,7 +685,6 @@ public class MusicService extends Service implements Player.Listener {
                 PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE
         );
 
-        // ===== КНОПКИ ДЛЯ ШТОРКИ (ЧЕРЕЗ BROADCAST) =====
         Intent prevIntent = new Intent(this, NotificationReceiver.class);
         prevIntent.setAction(ACTION_PREV);
         PendingIntent prevPendingIntent = PendingIntent.getBroadcast(
@@ -534,7 +722,6 @@ public class MusicService extends Service implements Player.Listener {
                 .setOngoing(isPlaying)
                 .setVisibility(NotificationCompat.VISIBILITY_PUBLIC);
 
-        // Добавляем кнопки
         builder.addAction(android.R.drawable.ic_media_previous, "Назад", prevPendingIntent);
 
         if (isPlaying) {
@@ -567,6 +754,8 @@ public class MusicService extends Service implements Player.Listener {
                 intent.putExtra("isPlaying", isPlaying);
                 intent.putExtra("repeatMode", repeatMode);
                 intent.putExtra("shuffleEnabled", shuffleEnabled);
+                intent.putExtra("isPlaylistMode", isPlaylistMode);
+                intent.putExtra("playlistName", getCurrentPlaylistName());
             }
         }
         sendBroadcast(intent);
@@ -581,30 +770,14 @@ public class MusicService extends Service implements Player.Listener {
     public int onStartCommand(Intent intent, int flags, int startId) {
         if (intent != null && intent.getAction() != null) {
             String action = intent.getAction();
-            Log.d(TAG, "📩 onStartCommand: " + action);
-
             switch (action) {
-                case ACTION_PLAY:
-                    play();
-                    break;
-                case ACTION_PAUSE:
-                    pause();
-                    break;
-                case ACTION_NEXT:
-                    next();
-                    break;
-                case ACTION_PREV:
-                    prev();
-                    break;
-                case ACTION_STOP:
-                    stopSelf();
-                    break;
-                case ACTION_REPEAT:
-                    toggleRepeat();
-                    break;
-                case ACTION_SHUFFLE:
-                    toggleShuffle();
-                    break;
+                case ACTION_PLAY: play(); break;
+                case ACTION_PAUSE: pause(); break;
+                case ACTION_NEXT: next(); break;
+                case ACTION_PREV: prev(); break;
+                case ACTION_STOP: stopSelf(); break;
+                case ACTION_REPEAT: toggleRepeat(); break;
+                case ACTION_SHUFFLE: toggleShuffle(); break;
             }
         }
         return START_STICKY;

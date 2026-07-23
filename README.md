@@ -97,10 +97,10 @@ GET /rest/getAlbum?id=XXX
 ↓
 MainActivity обновляет UI
 
-text
+
 
 **Пример JSON-ответа от Navidrome:**
-```json
+
 {
   "subsonic-response": {
     "status": "ok",
@@ -121,7 +121,6 @@ text
 
 Что происходит в коде:
 
-text
 MainActivity.onItemClick()
     ↓
 musicService.playSong(index)
@@ -139,14 +138,14 @@ updateNotification() → появляется в шторке
 sendUpdateBroadcast() → обновляет мини-плеер
 Пример URL для стриминга:
 
-text
+
 https://xxx.trycloudflare.com/rest/stream?id=XXX&u=NICHAN&p=***&v=1.16.1&c=myplayer
 3️⃣ Управление из шторки уведомлений
 Что делает пользователь: Свайпает вниз → нажимает кнопку в уведомлении
 
 Что происходит в коде:
 
-text
+
 Пользователь нажал "Пауза" в шторке
     ↓
 NotificationReceiver.onReceive()
@@ -164,7 +163,7 @@ updateNotification() → меняем иконку на "Плей"
 sendUpdateBroadcast() → обновляем UI
 Цепочка Intent'ов:
 
-text
+
 Notification (кнопка)
     ↓
 PendingIntent.getBroadcast()
@@ -179,7 +178,7 @@ UI обновляется
 
 Что происходит в коде:
 
-text
+
 Пользователь двигает SeekBar
     ↓
 SeekBar.OnSeekBarChangeListener.onProgressChanged()
@@ -201,7 +200,7 @@ text
 4. **Сохрани**
 5. **Заливай**:
 
-```bash
+
 git add README.md
 git commit -m "Починил форматирование User Flow"
 git push

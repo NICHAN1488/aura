@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="24dp"
+    android:id="@+id/fullPlayerRoot">
+
+    <View
+        android:layout_width="40dp"
+        android:layout_height="4dp"
+        android:background="#444444"
+        android:layout_gravity="center"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="20dp" />
+
+    <ImageButton
+        android:id="@+id/fullClose"
+        android:layout_width="40dp"
+        android:layout_height="40dp"
+        android:src="@android:drawable/ic_menu_close_clear_cancel"
+        android:background="@null"
+        app:tint="#FFFFFF"
+        android:alpha="0.7"
+        android:layout_gravity="start"
+        android:layout_marginBottom="10dp" />
+
+    <!-- ОБЛОЖКА -->
+    <View
+        android:layout_width="280dp"
+        android:layout_height="280dp"
+        android:background="@drawable/cover_gradient"
+        android:layout_gravity="center"
+        android:layout_marginBottom="20dp" />
+
+    <!-- КОНТЕЙНЕР ДЛЯ НАЗВАНИЯ И ИСПОЛНИТЕЛЯ (растягивается, но не давит на кнопки) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:orientation="vertical"
+        android:gravity="center_vertical"
+        android:layout_marginBottom="10dp">
+
+        <TextView
+            android:id="@+id/fullSongName"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Нет трека"
+            android:textColor="#FFFFFF"
+            android:textSize="24sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:maxLines="2"
+            android:ellipsize="end"
+            android:layout_marginBottom="4dp" />
+
+        <TextView
+            android:id="@+id/fullArtist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="---"
+            android:textColor="#AAAAAA"
+            android:textSize="16sp"
+            android:gravity="center"
+            android:maxLines="1"
+            android:ellipsize="end" />
+    </LinearLayout>
+
+    <!-- КОНТРОЛЫ (всегда внизу) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_gravity="bottom">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/fullCurrentTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+
+            <View
+                android:layout_width="0dp"
+                android:layout_height="0dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/fullDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#AAAAAA"
+                android:textSize="12sp" />
+        </LinearLayout>
+
+        <SeekBar
+            android:id="@+id/fullSeekBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:progressTint="#1DB954"
+            android:thumbTint="#1DB954"
+            android:layout_marginTop="-8dp"
+            android:layout_marginBottom="8dp" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="8dp">
+
+            <ImageButton
+                android:id="@+id/fullShuffle"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_sort_alphabetically"
+                android:background="@null"
+                app:tint="#888888" />
+
+            <ImageButton
+                android:id="@+id/fullPrev"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@android:drawable/ic_media_previous"
+                android:background="@null"
+                app:tint="#FFFFFF"
+                android:layout_marginStart="20dp" />
+
+            <ImageButton
+                android:id="@+id/fullPlayPause"
+                android:layout_width="72dp"
+                android:layout_height="72dp"
+                android:src="@android:drawable/ic_media_play"
+                android:background="@drawable/play_button"
+                app:tint="#FFFFFF"
+                android:layout_marginStart="24dp"
+                android:layout_marginEnd="24dp" />
+
+            <ImageButton
+                android:id="@+id/fullNext"
+                android:layout_width="56dp"
+                android:layout_height="56dp"
+                android:src="@android:drawable/ic_media_next"
+                android:background="@null"
+                app:tint="#FFFFFF"
+                android:layout_marginEnd="20dp" />
+
+            <ImageButton
+                android:id="@+id/fullRepeat"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_menu_revert"
+                android:background="@null"
+                app:tint="#888888" />
+        </LinearLayout>
+
+    </LinearLayout>
+
+</LinearLayout>

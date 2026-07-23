@@ -1,0 +1,299 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#121212"
+    android:padding="16dp">
+
+    <!-- ВЕРХНЯЯ ПАНЕЛЬ -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        android:padding="16dp"
+        android:paddingTop="30dp">
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="AURA"
+            android:textColor="#1DB954"
+            android:textSize="28sp"
+            android:textStyle="bold"
+            android:letterSpacing="0.1" />
+
+        <ImageButton
+            android:id="@+id/btnRefresh"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:src="@android:drawable/ic_menu_rotate"
+            android:background="@null"
+            app:tint="#FFFFFF"
+            android:alpha="0.7"
+            android:onClick="forceRefresh" />
+    </LinearLayout>
+
+    <!-- СТРОКА ПОИСКА -->
+    <EditText
+        android:id="@+id/searchInput"
+        android:layout_width="match_parent"
+        android:layout_height="48dp"
+        android:hint="🔍 Что будем слушать?"
+        android:textColorHint="#888888"
+        android:textColor="#FFFFFF"
+        android:background="@drawable/search_background"
+        android:padding="12dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="12dp" />
+
+    <!-- ЖАНРЫ -->
+    <HorizontalScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/genreAll"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Всё"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_selected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+
+            <TextView
+                android:id="@+id/genrePop"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Поп"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_unselected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+
+            <TextView
+                android:id="@+id/genreRock"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Рок"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_unselected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+
+            <TextView
+                android:id="@+id/genreHiphop"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Хип-хоп"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_unselected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+
+            <TextView
+                android:id="@+id/genreElectronic"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Электро"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_unselected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+
+            <TextView
+                android:id="@+id/genreJazz"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Джаз"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_unselected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+
+            <TextView
+                android:id="@+id/genreClassical"
+                android:layout_width="wrap_content"
+                android:layout_height="36dp"
+                android:text="Классика"
+                android:textColor="#FFFFFF"
+                android:background="@drawable/genre_unselected"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"
+                android:gravity="center"
+                android:textSize="14sp"
+                android:layout_margin="4dp" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+    <!-- РЕКОМЕНДУЕМЫЕ -->
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="🔥 Рекомендуем"
+        android:textColor="#FFFFFF"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:padding="16dp"
+        android:paddingTop="20dp" />
+
+    <!-- СПИСОК -->
+    <ListView
+        android:id="@+id/songList"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:divider="#222222"
+        android:dividerHeight="1dp"
+        android:paddingBottom="80dp" />
+
+    <!-- ============================================================ -->
+    <!-- ===== МИНИ-ПЛЕЕР (РАБОТАЮЩИЙ) ===== -->
+    <!-- ============================================================ -->
+    <LinearLayout
+        android:id="@+id/miniPlayer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:background="#1E1E1E"
+        android:padding="8dp"
+        android:elevation="8dp"
+        android:visibility="gone"
+        android:clickable="true"
+        android:focusable="true">
+
+        <!-- Верхняя часть: кнопки + название -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:padding="4dp">
+
+            <View
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:background="@drawable/cover_gradient"
+                android:layout_marginEnd="10dp" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/miniSongName"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Нет трека"
+                    android:textColor="#FFFFFF"
+                    android:textSize="14sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/miniArtist"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="---"
+                    android:textColor="#AAAAAA"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- ===== КНОПКИ МИНИ-ПЛЕЕРА ===== -->
+            <ImageButton
+                android:id="@+id/miniPrev"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@android:drawable/ic_media_previous"
+                android:background="@null"
+                android:contentDescription="Назад" />
+
+            <ImageButton
+                android:id="@+id/miniPlayPause"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:src="@android:drawable/ic_media_play"
+                android:background="@null"
+                android:contentDescription="Пауза/Воспроизвести" />
+
+            <ImageButton
+                android:id="@+id/miniNext"
+                android:layout_width="36dp"
+                android:layout_height="36dp"
+                android:src="@android:drawable/ic_media_next"
+                android:background="@null"
+                android:contentDescription="Вперед" />
+        </LinearLayout>
+
+        <!-- SEEK BAR + ВРЕМЯ -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:paddingStart="4dp"
+            android:paddingEnd="4dp"
+            android:paddingBottom="4dp">
+
+            <TextView
+                android:id="@+id/miniCurrentTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+
+            <SeekBar
+                android:id="@+id/miniSeekBar"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:max="1000"
+                android:progress="0"
+                android:layout_marginHorizontal="6dp"
+                android:progressTint="#1DB954"
+                android:thumb="@null" />
+
+            <TextView
+                android:id="@+id/miniDuration"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="#AAAAAA"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+</LinearLayout>
